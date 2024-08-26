@@ -1,86 +1,88 @@
 const fetch = require('node-fetch');
-const cron = require('node-cron');
+const cron = require('cron');
 require('dotenv').config();
 
-const blumApiUrl = process.env.BLUM_API_URL;
-const telegramToken = process.env.TELEGRAM_TOKEN;
-const allowedUserId = parseInt(process.env.ALLOWED_USER_ID);
+const accounts = [
+    {
+        number: 18,
+        username: 'nomor1',
+        apiUrl: 'https://blum-api-url-1.com'
+    },
+    {
+        number: 19,
+        username: 'nomor2',
+        apiUrl: 'https://blum-api-url-2.com'
+    },
+    // Tambahkan akun lainnya jika diperlukan
+];
 
-// Function to log messages with timestamp
-const logMessage = (message) => {
-    const timestamp = new Date().toLocaleString();
+const logMessage = (account, message) => {
+    const timestamp = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jakarta' });
+    console.log(`[${timestamp}] account number = ${account.number}`);
+    console.log(`[${timestamp}] login as = ${account.username}`);
     console.log(`[${timestamp}] ${message}`);
 };
 
-// Function to perform daily check-in
-const dailyCheckIn = async () => {
+const dailyCheckIn = async (account) => {
     try {
-        const response = await fetch(blumApiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: telegramToken })
-        });
-
+        const response = await fetch(`${account.apiUrl}/daily-checkin`, { method: 'POST' });
         const data = await response.json();
+
         if (data.success) {
-            logMessage('Daily check-in successful.');
+            logMessage(account, 'already check in today!');
         } else {
-            logMessage(`Daily check-in failed: ${data.message}`);
+            logMessage(account, `failed to check in: ${data.message}`);
         }
     } catch (error) {
-        logMessage(`Error during daily check-in: ${error}`);
+        logMessage(account, `Error during daily check-in: ${error}`);
     }
 };
 
-// Function to perform farming
-const performFarming = async () => {
-    logMessage('Starting farming...');
+const performFarming = async (account) => {
+    logMessage(account, 'Starting farming...');
     try {
-        // Placeholder for actual farming logic
+        // Placeholder for actual farming API call
         await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate farming task
-        logMessage('Farming completed.');
+        logMessage(account, 'end farming = ' + new Date(Date.now() + 8 * 60 * 60 * 1000).toLocaleString('en-GB', { timeZone: 'Asia/Jakarta' }));
     } catch (error) {
-        logMessage(`Error during farming: ${error}`);
+        logMessage(account, `Error during farming: ${error}`);
     }
 };
 
-// Function to claim farming rewards
-const claimFarming = async () => {
-    logMessage('Starting claim farming...');
+const claimFarming = async (account) => {
+    logMessage(account, 'Starting claim farming...');
     try {
-        // Placeholder for actual claim farming logic
+        // Placeholder for actual claim farming API call
         await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate claim farming task
-        logMessage('Claim farming successful.');
+        logMessage(account, 'Claim farming successful.');
     } catch (error) {
-        logMessage(`Error during claim farming: ${error}`);
+        logMessage(account, `Error during claim farming: ${error}`);
     }
 };
 
 // Schedule daily check-in at 08:00 AM every day
-cron.schedule('0 8 * * *', () => {
-    dailyCheckIn();
-}, {
-    scheduled: true,
-    timezone: "Asia/Jakarta"
-});
+const dailyCheckInJob = new cron.CronJob('0 8 * * *', () => {
+    accounts.forEach(account => dailyCheckIn(account));
+}, null, true, 'Asia/Jakarta');
 
 // Schedule farming task every 8 hours
-cron.schedule('0 */8 * * *', () => {
-    performFarming();
-}, {
-    scheduled: true,
-    timezone: "Asia/Jakarta"
-});
+const farmingJob = new cron.CronJob('0 */8 * * *', () => {
+    accounts.forEach(account => performFarming(account));
+}, null, true, 'Asia/Jakarta');
 
-// Schedule claim farming task every 8 hours
-cron.schedule('5 */8 * * *', () => {
-    claimFarming();
-}, {
-    scheduled: true,
-    timezone: "Asia/Jakarta"
-});
+// Schedule claim farming task every 8 hours, 5 minutes after farming
+const claimFarmingJob = new cron.CronJob('5 */8 * * *', () => {
+    accounts.forEach(account => claimFarming(account));
+}, null, true, 'Asia/Jakarta');
 
-// Run initial daily check-in and farming tasks when the script starts
-dailyCheckIn();
-performFarming();
-claimFarming();
+// Start all jobs
+dailyCheckInJob.start();
+farmingJob.start();
+claimFarmingJob.start();
+
+// Run the initial tasks immediately on startup
+accounts.forEach(account => {
+    dailyCheckIn(account);
+    performFarming(account);
+    claimFarming(account);
+});
